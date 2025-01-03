@@ -43,7 +43,7 @@ const App = () => {
         console.log("initialize cheerpj");
         await cheerpjInit();
         fixMain.current = await cheerpjRunLibrary(
-          jarNames.map((x) => "/app/dist/" + x).join(":"),
+          jarNames.map((x) => "/app/scalafix-web-example/dist/" + x).join(":"),
         );
       }
       if (running.current === true) {
