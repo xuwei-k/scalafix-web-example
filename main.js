@@ -16,19 +16,12 @@ import { jarNames } from "./dist/jar_files.js";
 
 hljs.registerLanguage("scala", scala);
 
-const fix = (async function () {
-  await cheerpjInit();
-  const s = await cheerpjRunLibrary(
-    jarNames.map((x) => "/app/scalafix-web-example/dist/" + x).join(":"),
-  );
-
-  return s.scalafix_web.Main;
-})();
-
 const App = () => {
   const [fixed, setFixed] = useState("");
   const [warnings, setWarnings] = useState("");
   const [input, setInput] = useState("");
+  const fixMain = useRef(null);
+  const running = useRef(false);
 
   const [currentRules, setCurrentRules] = useReducer(
     (state, [ruleName, action]) => {
@@ -46,16 +39,32 @@ const App = () => {
 
   useEffect(() => {
     (async () => {
-      const main = await fix;
-      const t = await main.main(input, currentRules.join());
-      const errorString = await t.error();
-      if (errorString === "") {
-        const fixedCode = await t.fixed();
-        const diagnostics = await t.diagnostics();
-        setFixed(fixedCode);
-        setWarnings(diagnostics);
+      if (fixMain.current === null) {
+        console.log("initialize cheerpj");
+        await cheerpjInit();
+        fixMain.current = await cheerpjRunLibrary(
+          jarNames.map((x) => "/app/dist/" + x).join(":"),
+        );
+      }
+      if (running.current === true) {
+        console.log("skip");
       } else {
-        setWarnings(errorString);
+        running.current = true;
+        try {
+          const main = await fixMain.current.scalafix_web.Main;
+          const t = await main.main(input, currentRules.join());
+          const errorString = await t.error();
+          if (errorString === "") {
+            const fixedCode = await t.fixed();
+            const diagnostics = await t.diagnostics();
+            setFixed(fixedCode);
+            setWarnings(diagnostics);
+          } else {
+            setWarnings(errorString);
+          }
+        } finally {
+          running.current = false;
+        }
       }
     })();
   }, [fixed, input, currentRules]);
